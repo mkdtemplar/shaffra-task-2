@@ -21,10 +21,11 @@ func main() {
 	http.HandleFunc("/create", createUser)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
+
+	defer db.Close()
 }
 
 func getUsers(w http.ResponseWriter, r *http.Request) {
-	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
@@ -33,6 +34,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 
 		for rows.Next() {
+			wg.Add(1)
 			var name string
 			rows.Scan(&name)
 			fmt.Fprintf(w, "User: %s\n", name)
