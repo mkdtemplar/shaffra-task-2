@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,35 +13,44 @@ import (
 )
 
 var db *sql.DB
+
 var wg sync.WaitGroup
 
 func main() {
-	db, _ = sql.Open("postgres", "user=postgres dbname=test sslmode=disable")
+	var err error
+	db, err = sql.Open("postgres", "postgres://postgres:postgres@localhost/test?sslmode=disable")
+	if err != nil {
+		log.Fatal(errors.New("error opening database"))
+	}
 
+	log.Println("Connected to database:")
+	
 	http.HandleFunc("/users", getUsers)
 	http.HandleFunc("/create", createUser)
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe("localhost:8080", nil))
 
 	defer db.Close()
 }
 
 func getUsers(w http.ResponseWriter, r *http.Request) {
-
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
-		rows, _ := db.Query("SELECT name FROM users")
+		rows, err := db.Query("SELECT name FROM users")
+		if err != nil {
+            fmt.Fprintf(w, "Failed to retrieve users: %v", err)
+            return
+        }
 		defer rows.Close()
 
 		for rows.Next() {
-			wg.Add(1)
 			var name string
 			rows.Scan(&name)
 			fmt.Fprintf(w, "User: %s\n", name)
 		}
 	}()
-
 	wg.Wait()
 }
 
